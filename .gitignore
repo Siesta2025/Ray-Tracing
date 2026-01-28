@@ -1,0 +1,12 @@
+# 忽略所有的 ppm 图片文件
+*.ppm
+
+# 忽略编译出来的 Linux 可执行文件 (你之前生成的 app 或 main)
+main
+app
+
+# 忽略 Windows 可执行文件 (以防万一)
+*.exe
+
+# 忽略 VSCode 的配置文件夹 (可选，个人建议忽略)
+.vscode/
