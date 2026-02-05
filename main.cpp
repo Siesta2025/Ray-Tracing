@@ -2,8 +2,23 @@
 #include "vec3.h"
 #include "ray.h"
 
+// Check if the ray hits the sphere
+bool hit_sphere(const vec3& center, float radius, const ray& r){ // For float, we directly copy it because only 4 bytes
+    vec3 oc=r.origin()-center; // The vector from origin to the center
+    float a=dot(r.direction(),r.direction());
+    float b=2.0*dot(oc,r.direction()); // A good habit to use 2.0
+    float c=dot(oc,oc)-radius*radius;
+    float discriminant=b*b-4*a*c; // Doing some algebra...
+    return (discriminant>0);
+}
+
 // Pay attention that vec3 can represent both colors and vectors
 vec3 color(const ray& r){ // Only read the ray, cannot modify it
+    // Suppose the center lies on (0,0,-1), if the ray hits the sphere, then coloring red
+    if (hit_sphere(vec3(0,0,-1),0.5,r))
+        return vec3(1,0,0);
+    
+    // Fills the background with gradient color
     vec3 unit_direction=unit_vector(r.direction()); // Normalize
     float t=0.5*(unit_direction.y()+1.0); // Mapping y(-1~1) to (0~1) in order to control colors
     return (1.0-t)*vec3(1.0,1.0,1.0)+t*vec3(0.5,0.7,1.0); // Blending white(0.0,0.0,0.0) and blue(0.5,0.7,1.0)
