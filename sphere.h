@@ -23,7 +23,7 @@ bool sphere::hit(const ray& r,float t_min,float t_max,hit_record& rec) const {
     float a=dot(r.direction(),r.direction());
     float b=dot(oc,r.direction());
     float c=dot(oc,oc)-radius*radius;
-    float discriminant=b*b-a*c;
+    float discriminant=b*b-a*c; // Doing some algebra...
     if (discriminant>0){
         float temp=(-b-sqrt(b*b-a*c))/a; // The nearest one first
         if (temp<t_max&&temp>t_min){ // t_max and t_min are constraints on the scale of t
