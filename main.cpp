@@ -7,10 +7,21 @@
 #include "ray.h"
 #include "camera.h"
 
+// Using rejection method to pick a random point in unit sphere
+vec3 random_in_unit_sphere(){
+    vec3 p;
+    do{
+        p=2.0*vec3(drand48(),drand48(),drand48())-vec3(1,1,1); // Shift the origin to (1,1,1)
+    }while (dot(p,p)>=1.0);
+    return p;
+}
+
 vec3 color(const ray& r,hitable *world){
     hit_record rec;
     if (world->hit(r,0.0,FLT_MAX,rec)){
-        return 0.5*vec3(rec.normal.x()+1,rec.normal.y()+1,rec.normal.z()+1); // If hit, blending the object color
+        vec3 target=rec.p+rec.normal+random_in_unit_sphere(); // Hitting point+ normal+ random direction=target
+        return 0.5*color(ray(rec.p,target-rec.p),world);
+        // Recursion method (like sending a spy to inspect), assuming the reflectivity is 50%
     }
     else{
         vec3 unit_direction=unit_vector(r.direction());
@@ -36,7 +47,7 @@ int main(){
 
     for(int j=ny-1;j>=0;j--){
         for(int i=0;i<nx;i++){
-            vec3 col(0,0,0);
+            vec3 col(0,0,0); // Color
             for (int s=0;s<ns;s++){
                 float u=float(i+drand48())/float(nx); // Sampling inside the pixel
                 float v=float(j+drand48())/float(ny);
@@ -44,6 +55,8 @@ int main(){
                 col+=color(r,world);
             }
             col/=float(ns); // Average
+            // Gamma correction
+            col=vec3(sqrt(col[0]),sqrt(col[1]),sqrt(col[2]));
             // Scale to int between 0 and 255, 255.99 is a tricky multiplier, as int cast would simply truncate the float
             int ir=int(255.99*col[0]);
             int ig=int(255.99*col[1]);
