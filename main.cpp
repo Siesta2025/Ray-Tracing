@@ -2,31 +2,39 @@
 #include <cmath> // For sqrt()
 #include <cfloat> // For FLT_MAX
 #include "sphere.h"
+#include "hitable.h"
 #include "hitablelist.h"
 #include "vec3.h"
 #include "ray.h"
 #include "camera.h"
+#include "material.h"
 
-// Using rejection method to pick a random point in unit sphere
-vec3 random_in_unit_sphere(){
-    vec3 p;
-    do{
-        p=2.0*vec3(drand48(),drand48(),drand48())-vec3(1,1,1); // Shift the origin to (1,1,1)
-    }while (dot(p,p)>=1.0);
-    return p;
-}
 
-vec3 color(const ray& r,hitable *world){
+
+vec3 color(const ray& r, hitable *world, int depth){ // depth is recursion depth, in order to prevent infinite recursions
     hit_record rec;
-    if (world->hit(r,0.0,FLT_MAX,rec)){
-        vec3 target=rec.p+rec.normal+random_in_unit_sphere(); // Hitting point+ normal+ random direction=target
-        return 0.5*color(ray(rec.p,target-rec.p),world);
-        // Recursion method (like sending a spy to inspect), assuming the reflectivity is 50%
+
+    // Object
+    if (world->hit(r,0.001,FLT_MAX,rec)){
+    // Using 0.001 is the solution to "Shadow Acne" problem
+
+        ray scattered;
+        vec3 attenuation;
+        // The flow: use the "side effect" of functions to mutate them
+
+        if (depth<50 && rec.mat_ptr->scatter(r,rec,attenuation,scattered)){
+            return attenuation*color(scattered,world,depth+1);
+        }
+        else{
+            return vec3(0,0,0); // Otherwise, set to "black"
+        }
     }
+    
+    // Background 
     else{
         vec3 unit_direction=unit_vector(r.direction());
         float t=0.5*(unit_direction.y()+1.0);
-        return (1.0-t)*vec3(1.0,1.0,1.0)+t*vec3(0.5,0.7,1.0); // Not hit, blending background color
+        return (1.0-t)*vec3(1.0,1.0,1.0)+t*vec3(0.5,0.7,1.0);
     }
 }
  
@@ -35,12 +43,14 @@ int main(){
     int ny=100;
     int ns=100; // Doing 100 random trials
     std::cout<<"P3\n"<<nx<<" "<<ny<<"\n255\n"; // The PPM format
-    hitable *list[2]; // An array of pointers
+    hitable *list[4]; // An array of pointers
     // Why double pointers? Abstract base case can't be instantiated!
 
-    list[0]=new sphere(vec3(0,0,-1),0.5); // Heap memory(avoid stack overflow), 'new' returns a pointer/address
-    list[1]=new sphere(vec3(0,-100.5,-1),100); // A huge sphere representing the ground
-    hitable *world=new hitable_list(list,2); // C++ allows assigning a derived class pointer to a base class pointer
+    list[0]=new sphere(vec3(0,0,-1),0.5,new lambertian(vec3(0.8,0.3,0.3))); // Heap memory(avoid stack overflow), 'new' returns a pointer/address
+    list[1]=new sphere(vec3(0,-100.5,-1),100,new lambertian(vec3(0.8,0.8,0.0))); // A huge sphere representing the ground
+    list[2]=new sphere(vec3(1,0,-1),0.5,new metal(vec3(0.8,0.6,0.2)));
+    list[3]=new sphere(vec3(-1,0,-1),0.5,new metal(vec3(0.8,0.8,0.8)));
+    hitable *world=new hitable_list(list,4); // C++ allows assigning a derived class pointer to a base class pointer
     // Pay attention that hitable_list is not only a container, but also a hitable object!
 
     camera cam; // Introduce camera
@@ -52,7 +62,8 @@ int main(){
                 float u=float(i+drand48())/float(nx); // Sampling inside the pixel
                 float v=float(j+drand48())/float(ny);
                 ray r=cam.get_ray(u,v);
-                col+=color(r,world);
+                vec3 p=r.point_at_parameter(2.0);
+                col+=color(r,world,0);
             }
             col/=float(ns); // Average
             // Gamma correction

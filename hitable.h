@@ -3,12 +3,15 @@
 
 #include "ray.h"
 
+class material; // Forward declaration in order to prevent circularity(material and hitables need to know each other)
+
 // Wrap up all the information we need of a hitting
 // Having this, a function can return a bunch of information we need!
 struct hit_record{
     float t; // The parameter t
     vec3 p; // Position
     vec3 normal; // Surface normal 
+    material *mat_ptr; // Material
 };
 
 class hitable{
