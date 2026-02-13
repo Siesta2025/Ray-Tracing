@@ -43,14 +43,15 @@ int main(){
     int ny=100;
     int ns=100; // Doing 100 random trials
     std::cout<<"P3\n"<<nx<<" "<<ny<<"\n255\n"; // The PPM format
-    hitable *list[4]; // An array of pointers
+    hitable *list[5]; // An array of pointers
     // Why double pointers? Abstract base case can't be instantiated!
 
-    list[0]=new sphere(vec3(0,0,-1),0.5,new lambertian(vec3(0.8,0.3,0.3))); // Heap memory(avoid stack overflow), 'new' returns a pointer/address
+    list[0]=new sphere(vec3(0,0,-1),0.5,new lambertian(vec3(0.1,0.2,0.5))); // Heap memory(avoid stack overflow), 'new' returns a pointer/address
     list[1]=new sphere(vec3(0,-100.5,-1),100,new lambertian(vec3(0.8,0.8,0.0))); // A huge sphere representing the ground
     list[2]=new sphere(vec3(1,0,-1),0.5,new metal(vec3(0.8,0.6,0.2)));
-    list[3]=new sphere(vec3(-1,0,-1),0.5,new metal(vec3(0.8,0.8,0.8)));
-    hitable *world=new hitable_list(list,4); // C++ allows assigning a derived class pointer to a base class pointer
+    list[3]=new sphere(vec3(-1,0,-1),0.5,new dielectric(1.5));
+    list[4]=new sphere(vec3(-1,0,-1),-0.45,new dielectric(1.5)); // Trick: negative radius simulates hollow glass sphere
+    hitable *world=new hitable_list(list,5); // C++ allows assigning a derived class pointer to a base class pointer
     // Pay attention that hitable_list is not only a container, but also a hitable object!
 
     camera cam; // Introduce camera
@@ -62,7 +63,6 @@ int main(){
                 float u=float(i+drand48())/float(nx); // Sampling inside the pixel
                 float v=float(j+drand48())/float(ny);
                 ray r=cam.get_ray(u,v);
-                vec3 p=r.point_at_parameter(2.0);
                 col+=color(r,world,0);
             }
             col/=float(ns); // Average
