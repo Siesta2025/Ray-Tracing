@@ -54,7 +54,7 @@ int main(){
     hitable *world=new hitable_list(list,5); // C++ allows assigning a derived class pointer to a base class pointer
     // Pay attention that hitable_list is not only a container, but also a hitable object!
 
-    camera cam; // Introduce camera
+    camera cam(vec3(-2,2,1),vec3(0,0,-1),vec3(0,1,0),90,float(nx)/float(ny)); // Introduce camera
 
     for(int j=ny-1;j>=0;j--){
         for(int i=0;i<nx;i++){
