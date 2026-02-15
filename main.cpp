@@ -54,12 +54,12 @@ hitable *random_scene(){
             // 0.9 is a subtle number, preventing overflow
 
             if ((center-vec3(4,0.2,0)).length()>0.9){
-                if (choose_mat<0.8){
+                if (choose_mat<0.3){
                     // Matte
                     seikai[i++]=new sphere(center,0.2,new lambertian(vec3(drand48()*drand48(),drand48()*drand48(),drand48()*drand48())));
                     // Square to make color softer(remember Gamma correction?)
                 }
-                else if (choose_mat<0.95){
+                else if (choose_mat<0.65){
                     // Metal
                     seikai[i++]=new sphere(center,0.2,new metal(vec3(0.5*(1+drand48()),0.5*(1+drand48()),0.5*(1+drand48()))));
                     // Graphics optimization
