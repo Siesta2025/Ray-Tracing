@@ -8,6 +8,15 @@
 #include "ray.h"
 #include "camera.h"
 #include "material.h"
+#include <random>
+#include <vector>
+#include <omp.h>
+
+inline double random_double(){
+    static thread_local std::mt19937 generator(std::random_device{}());
+    std::uniform_real_distribution<double> distribution(0.0,1.0);
+    return distribution(generator);
+}
 
 vec3 color(const ray& r, hitable *world, int depth){ // depth is recursion depth, in order to prevent infinite recursions
     hit_record rec;
@@ -32,7 +41,7 @@ vec3 color(const ray& r, hitable *world, int depth){ // depth is recursion depth
     else{
         vec3 unit_direction=unit_vector(r.direction());
         float t=0.5*(unit_direction.y()+1.0);
-        return (1.0-t)*vec3(1.0,1.0,1.0)+t*vec3(0.5,0.7,1.0);
+        return (1.0-t)*vec3(1.0,1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
     }
 }
 
@@ -42,30 +51,29 @@ hitable *random_scene(){
     hitable **seikai=new hitable*[n+1]; // Have to use heap memory('cause we want the array to exist even after this function ends)
 
     // Floor
-    seikai[0]=new sphere(vec3(0,-1000,0),1000,new lambertian(vec3(0.5,0.5,0.5)));
+    seikai[0]=new sphere(vec3(0,-1000,0), 1000, new lambertian(vec3(0.5, 0.9, 0.5)));
 
     int i=1; // Counter
+
 
     // Grid loop for random small spheres
     for (int a=-11;a<11;a++){
         for (int b=-11;b<11;b++){
-            float choose_mat=drand48();
-            vec3 center(a+0.9*drand48(),0.2,b+0.9*drand48()); // Good habit to break the problem down!
+            float choose_mat=random_double();
+            vec3 center(a+0.9*random_double(),0.2,b+0.9*random_double()); // Good habit to break the problem down!
             // 0.9 is a subtle number, preventing overflow
 
             if ((center-vec3(4,0.2,0)).length()>0.9){
-                if (choose_mat<0.3){
-                    // Matte
-                    seikai[i++]=new sphere(center,0.2,new lambertian(vec3(drand48()*drand48(),drand48()*drand48(),drand48()*drand48())));
-                    // Square to make color softer(remember Gamma correction?)
+                if (choose_mat<0.4){
+                    seikai[i++]=new sphere(center,0.2,new lambertian(vec3(1.0,0.7,0.8)));
                 }
-                else if (choose_mat<0.65){
-                    // Metal
-                    seikai[i++]=new sphere(center,0.2,new metal(vec3(0.5*(1+drand48()),0.5*(1+drand48()),0.5*(1+drand48()))));
-                    // Graphics optimization
+                else if (choose_mat<0.7){
+                    seikai[i++]=new sphere(center,0.2,new lambertian(vec3(0.95,0.95,0.9)));
+                }
+                else if (choose_mat<0.9){
+                    seikai[i++]=new sphere(center,0.2,new metal(vec3(0.4,0.6,0.9)));
                 }
                 else{
-                    // Glass
                     seikai[i++]=new sphere(center,0.2,new dielectric(1.5));
                 }
             }
@@ -74,8 +82,8 @@ hitable *random_scene(){
 
     // The Big Three
     seikai[i++]=new sphere(vec3(0,1,0),1.0,new dielectric(1.5));
-    seikai[i++]=new sphere(vec3(-4,1,0),1.0,new lambertian(vec3(0.4,0.2,0.1)));
-    seikai[i++]=new sphere(vec3(4,1,0),1.0,new metal(vec3(0.7,0.6,0.5)));
+    seikai[i++]=new sphere(vec3(-4,1,0),1.0,new lambertian(vec3(1.0,0.6,0.6)));
+    seikai[i++]=new sphere(vec3(4,1,0),1.0,new metal(vec3(0.8,0.8,0.9)));
 
     return new hitable_list(seikai,i);
 }
@@ -97,24 +105,42 @@ int main(){
     float aperture=0.1;
     camera cam(lookfrom,lookat,vec3(0,1,0),20,float(nx)/float(ny),aperture,dist_to_focus);
 
+    // Storage(framebuffer): to store the colors first, avoiding parallel bug
+    std::vector<vec3> framebuffer(nx*ny);
+
+    #pragma omp parallel for schedule(dynamic,1)
     for(int j=ny-1;j>=0;j--){
         for(int i=0;i<nx;i++){
             vec3 col(0,0,0); // Color
             for (int s=0;s<ns;s++){
-                float u=float(i+drand48())/float(nx); // Sampling inside the pixel
-                float v=float(j+drand48())/float(ny);
+                float u=float(i+random_double())/float(nx); // Sampling inside the pixel
+                float v=float(j+random_double())/float(ny);
                 ray r=cam.get_ray(u,v);
                 col+=color(r,world,0);
             }
             col/=float(ns); // Average
+            // Bloom Hack
+            col*=1.2;
             // Gamma correction
             col=vec3(sqrt(col[0]),sqrt(col[1]),sqrt(col[2]));
-            // Scale to int between 0 and 255, 255.99 is a tricky multiplier, as int cast would simply truncate the float
-            int ir=int(255.99*col[0]);
-            int ig=int(255.99*col[1]);
-            int ib=int(255.99*col[2]);
-            
-            std::cout<<ir<<" "<<ig<<" "<<ib<<"\n";
+
+            // Fill in the framebuffer
+            int index=(ny-1-j)*nx+i;
+            framebuffer[index]=col;
         }
     }
+    
+    // Print at the end
+    for (int k=0;k<nx*ny;k++){
+        vec3 col=framebuffer[k];
+        // Scale to int between 0 and 255, 255.99 is a tricky multiplier, as int cast would simply truncate the float
+        int ir=int(255.99*col[0]);
+        int ig=int(255.99*col[1]);
+        int ib=int(255.99*col[2]);
+            
+        std::cout<<ir<<" "<<ig<<" "<<ib<<"\n";
+    }
+
+    // A signal
+    std::cerr<<"Render complete!";
 }
