@@ -41,7 +41,16 @@ vec3 color(const ray& r, hitable *world, int depth){ // depth is recursion depth
     else{
         vec3 unit_direction=unit_vector(r.direction());
         float t=0.5*(unit_direction.y()+1.0);
-        return (1.0-t)*vec3(1.0,1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+
+        vec3 background=(1.0-t)*vec3(0.8,0.9,1.0)+t*vec3(0.1,0.3,0.7);
+
+        // Sunlight
+        vec3 sun_dir=unit_vector(vec3(1.0,0.8,0.5));
+        float sun_intensity=dot(unit_direction,sun_dir);
+        if (sun_intensity>0.95){
+            background+=vec3(0.8,0.6,0.2)*(sun_intensity-0.95)*10.0;
+        }
+        return background;
     }
 }
 
@@ -51,7 +60,7 @@ hitable *random_scene(){
     hitable **seikai=new hitable*[n+1]; // Have to use heap memory('cause we want the array to exist even after this function ends)
 
     // Floor
-    seikai[0]=new sphere(vec3(0,-1000,0), 1000, new lambertian(vec3(0.5, 0.9, 0.5)));
+    seikai[0]=new sphere(vec3(0,-1000,0), 1000, new lambertian(vec3(0.3, 0.5, 0.35)));
 
     int i=1; // Counter
 
@@ -120,7 +129,11 @@ int main(){
             }
             col/=float(ns); // Average
             // Bloom Hack
-            col*=1.2;
+            col*=1.1;
+            // Improve saturation
+            float gray=0.21*col[0]+0.72*col[1]+0.07*col[2];
+            col=vec3(gray,gray,gray)+1.2*(col-vec3(gray,gray,gray));  
+               
             // Gamma correction
             col=vec3(sqrt(col[0]),sqrt(col[1]),sqrt(col[2]));
 
