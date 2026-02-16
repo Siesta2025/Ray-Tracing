@@ -41,58 +41,49 @@ vec3 color(const ray& r, hitable *world, int depth){ // depth is recursion depth
     else{
         vec3 unit_direction=unit_vector(r.direction());
         float t=0.5*(unit_direction.y()+1.0);
-
-        vec3 background=(1.0-t)*vec3(0.8,0.9,1.0)+t*vec3(0.1,0.3,0.7);
-
-        // Sunlight
-        vec3 sun_dir=unit_vector(vec3(1.0,0.8,0.5));
-        float sun_intensity=dot(unit_direction,sun_dir);
-        if (sun_intensity>0.95){
-            background+=vec3(0.8,0.6,0.2)*(sun_intensity-0.95)*10.0;
-        }
-        return background;
+        return (1.0-t)*vec3(1.0,0.95,0.9)+t*vec3(0.85,0.7,0.75);
     }
 }
 
 hitable *random_scene(){
     // Memory allocation
-    int n=500;
+    int n=1000;
     hitable **seikai=new hitable*[n+1]; // Have to use heap memory('cause we want the array to exist even after this function ends)
 
     // Floor
-    seikai[0]=new sphere(vec3(0,-1000,0), 1000, new lambertian(vec3(0.3, 0.5, 0.35)));
+    seikai[0]=new sphere(vec3(0,-1000,0), 1000, new metal(vec3(0.7, 0.7, 0.65)));
 
     int i=1; // Counter
 
+    // Sakura rain
+    for (int k=0;k<500;k++){
+        float x=random_double()*20.0-10.0;
+        float z=random_double()*20.0-10.0;
+        float y=random_double()*8.0+0.2;
+        vec3 center(x,y,z);
 
-    // Grid loop for random small spheres
-    for (int a=-11;a<11;a++){
-        for (int b=-11;b<11;b++){
-            float choose_mat=random_double();
-            vec3 center(a+0.9*random_double(),0.2,b+0.9*random_double()); // Good habit to break the problem down!
-            // 0.9 is a subtle number, preventing overflow
+        float tone=random_double();
+        vec3 albedo;
 
-            if ((center-vec3(4,0.2,0)).length()>0.9){
-                if (choose_mat<0.4){
-                    seikai[i++]=new sphere(center,0.2,new lambertian(vec3(1.0,0.7,0.8)));
-                }
-                else if (choose_mat<0.7){
-                    seikai[i++]=new sphere(center,0.2,new lambertian(vec3(0.95,0.95,0.9)));
-                }
-                else if (choose_mat<0.9){
-                    seikai[i++]=new sphere(center,0.2,new metal(vec3(0.4,0.6,0.9)));
-                }
-                else{
-                    seikai[i++]=new sphere(center,0.2,new dielectric(1.5));
-                }
-            }
+        if (tone<0.6){
+            albedo=vec3(1.0,0.75,0.85);
         }
+        else if (tone<0.85){
+            albedo=vec3(1.0,1.0,1.0);
+        }
+        else{
+            albedo=vec3(0.6,0.8,0.4);
+        }
+
+        float size=0.05+random_double()*0.08;
+
+        seikai[i++]=new sphere(center,size,new lambertian(albedo));
     }
 
     // The Big Three
     seikai[i++]=new sphere(vec3(0,1,0),1.0,new dielectric(1.5));
-    seikai[i++]=new sphere(vec3(-4,1,0),1.0,new lambertian(vec3(1.0,0.6,0.6)));
-    seikai[i++]=new sphere(vec3(4,1,0),1.0,new metal(vec3(0.8,0.8,0.9)));
+    seikai[i++]=new sphere(vec3(-4,1,0),1.0,new lambertian(vec3(0.95,0.95,0.95)));
+    seikai[i++]=new sphere(vec3(4,1,0),1.0,new metal(vec3(0.9,0.7,0.6)));
 
     return new hitable_list(seikai,i);
 }
@@ -111,7 +102,7 @@ int main(){
     vec3 lookfrom(13,2,3);
     vec3 lookat(0,0,0);
     float dist_to_focus=10.0;
-    float aperture=0.1;
+    float aperture=0.25;
     camera cam(lookfrom,lookat,vec3(0,1,0),20,float(nx)/float(ny),aperture,dist_to_focus);
 
     // Storage(framebuffer): to store the colors first, avoiding parallel bug
@@ -133,7 +124,7 @@ int main(){
             // Improve saturation
             float gray=0.21*col[0]+0.72*col[1]+0.07*col[2];
             col=vec3(gray,gray,gray)+1.2*(col-vec3(gray,gray,gray));  
-               
+
             // Gamma correction
             col=vec3(sqrt(col[0]),sqrt(col[1]),sqrt(col[2]));
 
@@ -146,6 +137,12 @@ int main(){
     // Print at the end
     for (int k=0;k<nx*ny;k++){
         vec3 col=framebuffer[k];
+
+        // Avoid leak
+        if (col[0]>1.0) col[0]=1.0;
+        if (col[1]>1.0) col[1]=1.0;
+        if (col[2]>1.0) col[2]=1.0;
+        
         // Scale to int between 0 and 255, 255.99 is a tricky multiplier, as int cast would simply truncate the float
         int ir=int(255.99*col[0]);
         int ig=int(255.99*col[1]);
